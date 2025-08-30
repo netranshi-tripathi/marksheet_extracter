@@ -3,7 +3,7 @@ from PIL import Image
 from pdf2image import convert_from_path
 import os
 import time
-# Windows users: configure Tesseract path
+
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 def extract_text_from_image(image_path: str):
@@ -15,7 +15,7 @@ def extract_text_from_image(image_path: str):
     try:
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
     finally:
-        image.close()  # Ensure file is closed
+        image.close()  
 
     lines = {}
     word_confidences = []
@@ -33,7 +33,7 @@ def extract_text_from_image(image_path: str):
             except:
                 continue
 
-    # Reconstruct text with line breaks
+  
     full_text = "\n".join([" ".join(lines[k]) for k in sorted(lines.keys())])
     confidences = [conf for _, conf in word_confidences]
     return full_text, confidences, word_confidences
@@ -54,7 +54,7 @@ def extract_text_from_pdf(pdf_path: str):
         full_text += text + "\n"
         all_confidences.extend(confs)
         all_word_confidences.extend(word_confs)
-        # Retry delete if file is locked
+        
         for _ in range(5):
             try:
                 os.remove(temp_path)

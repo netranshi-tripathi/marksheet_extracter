@@ -1,4 +1,3 @@
-# filepath: c:\Users\divya\OneDrive\Desktop\testle\llm_utils.py
 import subprocess
 import json
 import re
@@ -9,84 +8,75 @@ def call_gemma_llm(raw_text: str):
     """
     prompt = f"""
 You are a marksheet parser. Extract ALL student information from the following OCR text.
-Required fields to extract:
 
-- Student Name
-- Father's Name
-- Mother's Name (if present)
-- Roll Number
-- Registration Number
-- Course / Class
-- College Name
-- University
-- Board
-- All subjects with:
-    - Subject Name
-    - Marks Obtained
-    - Maximum Marks
-    - Confidence per subject
-- Total Marks
-- Percentage
-- Division
-- Date of Issue
-- Overall OCR Confidence
+For candidate details, extract: Name, Father's Name, Mother's Name, Roll No, Registration No, Board, Institution, Exam Year.
+For each subject, extract: name, full marks, marks obtained, and grade (if present).
+For each field, include a confidence score between 0 and 1.
+Return only valid JSON matching the schema below. Do NOT add any explanation, comments, or extra text. Do NOT mention the blurred face in the response.
 
-Return the output in this exact JSON format ONLY (no extra text):
 {{
-  "student_name": "",
-  "father_name": "",
-  "mother_name": "",
-  "roll_number": "",
-  "registration_number": "",
-  "course": "",
-  "college_name": "",
-  "university": "",
-  "board": "",
+  "candidate_details": {{
+    "name": "",
+    "father_name": "",
+    "mother_name": "",
+    "roll_number": "",
+    "registration_number": "",
+    "exam_year": "",
+    "board": "",
+    "institution": ""
+  }},
   "subjects": [
-    {{"name": "", "marks_obtained": "", "max_marks": "", "confidence": ""}}
+    {{"name": "", "max_marks": "", "marks_obtained": "", "grade": "", "confidence": ""}}
   ],
-  "total_marks": "",
-  "percentage": "",
-  "division": "",
-  "date_of_issue": "",
+  "overall_result": {{
+    "division": "",
+    "total_marks": "",
+    "percentage": "",
+    "grade": "",
+    "confidence": ""
+  }},
+  "issue_date": "",
+  "issue_place": "",
   "confidence_overall": ""
 }}
-
-Rules:
-- Use OCR confidence values if available.
-- Leave fields empty if missing; do NOT guess.
-- Only JSON output. Must be valid JSON.
-- Ensure subject marks include obtained, min, max, and confidence.
-- Student Name: should only contain the name, nothing else
-- Roll Number: only numbers
-- Subjects: extract as rows from table, do not guess
 
 OCR Text:
 {raw_text}
 """
-    # Call Gemma API / LLM client here
-    # Example (replace with actual Gemma call):
-    # response = gemma_client.generate(prompt)
-    # return response.text
-
-    return prompt  # for testing, returns the prompt string
-
-
     process = subprocess.run(
-        ["ollama", "run", "gemma:2b"],
+        ["ollama", "run", "gemma3:4b"],
         input=prompt,
         text=True,
         capture_output=True
     )
 
     response = process.stdout.strip()
-    # Extract JSON from response using regex
-    match = re.search(r'\{.*\}', response, re.DOTALL)
-    if match:
-        json_str = match.group(0)
+    if not response:
+        print("LLM error:", process.stderr)
+        return {"error": "No response from LLM", "stderr": process.stderr}
+
+    print("LLM response:", response)  
+
+    def find_json(text):
+        start = text.find('{')
+        if start == -1:
+            return None
+        brace_count = 0
+        for i in range(start, len(text)):
+            if text[i] == '{':
+                brace_count += 1
+            elif text[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    return text[start:i+1]
+        return None
+
+    json_str = find_json(response)
+    if json_str:
         try:
             json_data = json.loads(json_str)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print("JSON decode error:", e)
             json_data = {"error": "Invalid JSON from LLM", "raw_output": response}
     else:
         json_data = {"error": "No JSON found in LLM output", "raw_output": response}
